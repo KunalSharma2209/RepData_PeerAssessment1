@@ -1,0 +1,150 @@
+---
+title: "Reproducible Research Week 2 Assignment"
+author: "Kunal Sharma"
+date: "01/03/2020"
+output: html_document
+---
+
+## Set up code for working directory and markdown settings
+
+```{r setup, include=TRUE, results='hide'}
+getwd()
+dir()
+setwd("~/R/ReproducibleWeek2Assignment")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1a) Load data and explore layout
+
+The following code is intended to read in the activity data, and get a feel for the layout of the dataset.
+
+```{r data load}
+activity.data <- read.table("activity.csv", sep=",", header=TRUE)
+
+ncol(activity.data)
+nrow(activity.data)
+names(activity.data)    # names of columns are "steps", "date" and "interval"
+
+head(activity.data)
+
+summary(activity.data$steps)
+summary(activity.data$date)      # shows that the dates are shown as factors
+summary(activity.data$interval)
+```
+
+## 1b) Processing data
+
+The code below converts the "date" column entries into a date format with which the analysis is more workable.
+
+```{r pressure}
+library("lubridate")
+activity.data$date <- ymd(activity.data$date)
+summary(activity.data$date)                       # shows that the dates are no longer factors
+```
+
+## 2) Histogram of the total number of steps taken each day
+
+The code below plots a histogram for the total number of steps taken on each day, across all time intervals.
+
+```{r histogram}
+sum.na <- function(x){sum(x, na.rm=TRUE)}
+steps.sums <- tapply(activity.data$steps, activity.data$date, FUN=sum.na)
+hist(steps.sums)
+```
+
+## 3) Mean and median number of steps each day
+
+```{r statistics}
+mean1 <- mean(steps.sums)    # note that this includes those days with zero (all NA) steps
+median1 <- median(steps.sums)  # note that this includes those days with zero (all NA) steps
+mean1
+median1
+```
+The code above shows that the mean number of steps taken each day is `r mean1` and the median number of steps is `r median1`.
+
+## 4) Time series plot of the average number of steps in each interval
+
+The code below plots a time series for the average number of steps taken within each time interval, across all days.
+
+```{r time series}
+average.na <- function(x){mean(x, na.rm=TRUE)}
+   
+intervals.means <- tapply(activity.data$steps, activity.data$interval, FUN=average.na)
+intervals <- tapply(activity.data$interval, activity.data$interval, FUN=average.na)
+   
+plot(intervals, intervals.means, type="l")
+```
+
+## 5) Time interval with highest average steps
+
+```{r maximum average steps}
+interval <- intervals[intervals.means==max(intervals.means)]
+maximum <- max(intervals.means)
+interval
+maximum
+```
+The code above shows that the time interval with the highest average number of steps, across all days, is `r interval` with `r maximum` average steps.
+
+## 6) Imputing missing data
+```{r imputing}
+   summary(activity.data$steps)     # shows 2304 NAs in this variable
+   summary(activity.data$date)      # shows no NAs in this variable
+   summary(activity.data$interval)  # shows no NAs in this variable
+   
+   na.data <- data.frame(intervals)
+   na.data[,2] <- intervals.means
+   
+   activity.data.na <- activity.data  # create a copy of the data set, in which to carry out the imputation
+   
+   for(i in 1:17568){
+      if(is.na(activity.data.na$steps[i])){
+         activity.data.na$steps[i]<-na.data[na.data[,1]==activity.data.na$interval[i],2]
+      }
+      else(activity.data.na$steps[i]<-activity.data.na$steps[i])  # the function replaces NA values with an average value
+   }
+```
+The code above is designed to replace NA values within the dataset with the average value, across all days, for the time interval being considered.
+
+The code above also shows that only the "steps" variable within the data has NA values, and the code below shows that the imputed dataset no longer has such NA values.
+
+```{r imputed}
+   summary(activity.data.na$steps)
+```
+
+## 7) Histogram of the total number of steps taken each day (imputed data)
+
+The code below plots a histogram for the total number of steps taken on each day, across all time intervals, using the newly-imputed data.
+
+```{r imputed histogram}
+steps.sums.na <- tapply(activity.data.na$steps, activity.data.na$date, FUN=sum.na)
+steps.sums.na
+hist(steps.sums.na)
+
+mean(steps.sums.na)    
+median(steps.sums.na) 
+```
+# 8) Comparison of average steps per interval across weekends and weekdays
+
+The code below plots a time series comparison of the average number of steps in each time interval, considering weekends versus weekdays.
+
+```{r weekends}
+weekday.vector <- weekdays(activity.data.na$date,abbreviate=TRUE)
+weekday.vector[weekday.vector=="Mon"] <- "weekday"
+weekday.vector[weekday.vector=="Tue"] <- "weekday"
+weekday.vector[weekday.vector=="Wed"] <- "weekday"
+weekday.vector[weekday.vector=="Thu"] <- "weekday"
+weekday.vector[weekday.vector=="Fri"] <- "weekday"
+weekday.vector[weekday.vector=="Sat"] <- "weekend"
+weekday.vector[weekday.vector=="Sun"] <- "weekend"
+activity.data.na$daytype <- weekday.vector
+   
+activity.data.na.weekday <- activity.data.na[activity.data.na$daytype=="weekday",]
+activity.data.na.weekend <- activity.data.na[activity.data.na$daytype=="weekend",]
+   
+intervals.means.weekday <- tapply(activity.data.na.weekday$steps, activity.data.na.weekday$interval, FUN=average.na)
+intervals.means.weekend <- tapply(activity.data.na.weekend$steps, activity.data.na.weekend$interval, FUN=average.na)
+   
+par(mfrow=c(2,1))
+plot(intervals, intervals.means.weekend, type="l", col="blue", ylab="Number of steps", xlab="Interval", main="Weekend")
+plot(intervals, intervals.means.weekday, type="l", col="blue",ylab="Number of steps", xlab="Interval", main="Weekday")
+```
